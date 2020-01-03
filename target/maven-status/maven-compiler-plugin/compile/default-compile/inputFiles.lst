@@ -1,5 +1,6 @@
-/Users/bagdong-gyu/Project/me.dgpark/annotation-processor/src/main/java/me/dgpark/MagicMojaProcessor.java
-/Users/bagdong-gyu/Project/me.dgpark/annotation-processor/src/main/java/me/dgpark/Magic.java
-/Users/bagdong-gyu/Project/me.dgpark/annotation-processor/src/main/java/me/dgpark/comment/ColumnComment.java
-/Users/bagdong-gyu/Project/me.dgpark/annotation-processor/src/main/java/me/dgpark/comment/ColumnCommentProcessor.java
-/Users/bagdong-gyu/Project/me.dgpark/annotation-processor/src/main/java/me/dgpark/comment/DbmsType.java
+D:\Study\annotation-processor\src\main\java\me\dgpark\comment\FieldType.java
+D:\Study\annotation-processor\src\main\java\me\dgpark\comment\DbmsType.java
+D:\Study\annotation-processor\src\main\java\me\dgpark\MagicMojaProcessor.java
+D:\Study\annotation-processor\src\main\java\me\dgpark\Magic.java
+D:\Study\annotation-processor\src\main\java\me\dgpark\comment\ColumnCommentProcessor.java
+D:\Study\annotation-processor\src\main\java\me\dgpark\comment\ColumnComment.java

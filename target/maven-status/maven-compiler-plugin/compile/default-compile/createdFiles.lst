@@ -1,6 +1,8 @@
-me/dgpark/comment/ColumnComment.class
-me/dgpark/comment/ColumnCommentProcessor.class
-me/dgpark/Magic.class
-META-INF/services/javax.annotation.processing.Processor
-me/dgpark/comment/DbmsType.class
-me/dgpark/MagicMojaProcessor.class
+me\dgpark\comment\ColumnComment.class
+me\dgpark\Magic.class
+me\dgpark\comment\ColumnCommentProcessor$1.class
+me\dgpark\comment\FieldType.class
+me\dgpark\comment\DbmsType.class
+me\dgpark\comment\ColumnCommentProcessor.class
+me\dgpark\MagicMojaProcessor.class
+META-INF\services\javax.annotation.processing.Processor

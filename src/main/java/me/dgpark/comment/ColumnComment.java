@@ -9,6 +9,4 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 public @interface ColumnComment {
     String value();
-
-    DbmsType type() default DbmsType.MARIA_DB;
 }

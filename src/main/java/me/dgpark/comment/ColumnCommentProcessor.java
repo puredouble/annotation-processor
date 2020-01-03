@@ -16,10 +16,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Table;
+import javax.persistence.*;
 import javax.tools.Diagnostic;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -53,18 +50,7 @@ public class ColumnCommentProcessor extends AbstractProcessor {
                 }
 
                 TypeElement typeElement = (TypeElement) element;
-                String tableName = typeElement.getSimpleName().toString();
-//                System.out.println("typeElement.getSimpleName() = " + tableName);
-                if (entity != null) {
-                    if (!entity.name().trim().equals("")) {
-                        tableName = entity.name();
-                    }
-                }
-                if (table != null) {
-                    if (!table.name().trim().equals("")) {
-                        tableName = table.name();
-                    }
-                }
+                String tableName = getTableName(entity, table, typeElement);
 
                 ClassName className = ClassName.get(typeElement);
 
@@ -102,80 +88,72 @@ public class ColumnCommentProcessor extends AbstractProcessor {
                         // field type
                         String type = key.asType().toString();
 //                        System.out.println("type = " + type);
-                        String fieldType = "";
+                        FieldType fieldType = null;
 
                         // reference : JPA - DB 자료형 매핑
                         // https://zetawiki.com/wiki/JPA_DB%EC%9E%90%EB%A3%8C%ED%98%95_%EB%A7%A4%ED%95%91
 
-                        // TODO type 별 default length 설정.
-
-                        switch (type) {
-                            case "java.lang.String":
-                                fieldType = "VARCHAR";
-                                break;
-                            case "java.lang.Long":
-                                fieldType = "BIGINT";
-                                break;
-                            case "java.lang.Integer":
-                                fieldType = "INT";
-                                break;
-                            case "java.lang.Double":
-                                fieldType = "DOUBLE";
-                                break;
-                            case "java.lang.Boolean":
-                                fieldType = "BIT";
-                                break;
-                            case "java.time.LocalDate":
-                                fieldType = "DATE";
-                                break;
-                            case "java.time.LocalDateTime":
-                                fieldType = "DATETIME";
-                                break;
-                            case "java.time.LocalTime":
-                                fieldType = "TIME";
-                                break;
-                            default:
-                                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "FATAL ERROR: ColumnComment annotation not supported type : " + type);
+                        // type 별 default length 설정.
+                        if (type.equals("java.lang.String")) {
+                            Lob lob = key.getAnnotation(Lob.class);
+                            if (lob != null) {
+                                fieldType = FieldType.LONGTEXT;
+                            }
+                            else {
+                                fieldType = getFieldType(type, key);
+                            }
+                        }
+                        else {
+                            fieldType = getFieldType(type, key);
                         }
 
-                        System.out.println("fieldType = " + fieldType);
+                        System.out.println("fieldType = " + fieldType.name());
+
+//                        int length = getDefaultLength(fieldType);
 
                         Column column = key.getAnnotation(Column.class);
 
+                        // nullable
+                        boolean nullable = true;
+                        // field length
+                        int length = 0;
+
                         if (column != null) {
                             // nullable
-                            boolean nullable = column.nullable();
+                            nullable = column.nullable();
                             System.out.println("nullable = " + nullable);
                             // field length
-                            int length = column.length();
+                            length = column.length();
                             System.out.println("length = " + length);
+                        }
 
-                            ColumnComment columnComment = map.get(key);
+                        length = getColumnLength(fieldType, length);
 
-                            String alterField = "\"ALTER TABLE \u0060" + tableName + "\u0060 CHANGE \u0060" + fieldName + "\u0060 \u0060" + fieldName + "\u0060 ";
+                        ColumnComment columnComment = map.get(key);
 
-                            if (nullable) {
-                                alterField += "NOT NULL ";
-                            }
+                        String alterField = "\"ALTER TABLE \u0060" + tableName + "\u0060 CHANGE \u0060" + fieldName + "\u0060 \u0060" + fieldName + "\u0060 ";
 
-                            alterField += fieldType + " ";
+                        if (!nullable) {
+                            alterField += "NOT NULL ";
+                        }
 
-                            if (length > 0) {
-                                alterField += "(" + length + ") ";
-                            }
+                        alterField += fieldType.name() + " ";
 
-                            alterField += "COMMENT '" + columnComment.value() + "'\"";
+                        if (length > 0) {
+                            alterField += "(" + length + ") ";
+                        }
 
-                            FieldSpec fieldSpec = FieldSpec
-                                    .builder(String.class, columnComment.value(), Modifier.PUBLIC)
+                        alterField += "COMMENT '" + columnComment.value() + "'\"";
+
+                        FieldSpec fieldSpec = FieldSpec
+                                .builder(String.class, columnComment.value(), Modifier.PUBLIC)
 //                                    .initializer(
 //                                            "\"ALTER TABLE \u0060" + tableName + "\u0060 CHANGE \u0060" + fieldName + "\u0060 \u0060" + fieldName + "\u0060 INT( 11 ) COMMENT '" + columnComment.value() + "'\""
 //                                    )
-                                    .initializer(alterField)
-                                    .build();
+                                .initializer(alterField)
+                                .build();
 
-                            fieldSpecList.add(fieldSpec);
-                        }
+                        fieldSpecList.add(fieldSpec);
 
                     }
 
@@ -200,4 +178,123 @@ public class ColumnCommentProcessor extends AbstractProcessor {
 
         return true;
     }
+
+    private int getColumnLength(FieldType fieldType, int length) {
+        // String 이 아닌 field 중 length 가 255 면 default 값이기 때문에 default length 입력.
+        if (!fieldType.equals(FieldType.VARCHAR) && length == 255) {
+            length = getDefaultLength(fieldType);
+        }
+
+        // String 값인데 length 가 없으면 255를 기본으로 넣어줌.
+        if (fieldType.equals(FieldType.VARCHAR) && length == 0) {
+            length = 255;
+        }
+
+        return length;
+    }
+
+    private Integer getDefaultLength(FieldType fieldType) {
+        Integer length = null;
+        switch (fieldType) {
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+            case DATE:
+            case TIME:
+                break;
+            case DATETIME:
+                length = 6;
+                break;
+            case TINYINT:
+                length = 4;
+                break;
+            case SMALLINT:
+                length = 6;
+                break;
+            case VARCHAR:
+                length = 255;
+                break;
+            case BIGINT:
+                length = 20;
+                break;
+            case INT:
+                length = 11;
+                break;
+            case BIT:
+                length = 1;
+                break;
+            default:
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "FATAL ERROR: ColumnComment annotation not supported type : " + fieldType);
+        }
+        return length;
+    }
+
+    private FieldType getFieldType(String type, Element field) {
+        FieldType fieldType = null;
+        switch (type) {
+            case "java.lang.Float":
+                fieldType = FieldType.FLOAT;
+                break;
+            case "java.lang.Double":
+                fieldType = FieldType.DOUBLE;
+                break;
+            case "java.lang.BigDecimal":
+                fieldType = FieldType.DECIMAL;
+                break;
+            case "java.lang.Byte":
+                fieldType = FieldType.TINYINT;
+                break;
+            case "java.lang.Short":
+                fieldType = FieldType.SMALLINT;
+                break;
+            case "java.lang.String":
+                fieldType = FieldType.VARCHAR;
+                break;
+            case "java.lang.Long":
+                fieldType = FieldType.BIGINT;
+                break;
+            case "java.lang.Integer":
+                fieldType = FieldType.INT;
+                break;
+            case "java.lang.Boolean":
+                fieldType = FieldType.BIT;
+                break;
+            case "java.time.LocalDate":
+                fieldType = FieldType.DATE;
+                break;
+            case "java.time.LocalDateTime":
+                fieldType = FieldType.DATETIME;
+                break;
+            case "java.time.LocalTime":
+                fieldType = FieldType.TIME;
+                break;
+            default:
+                Enumerated enumerated = field.getAnnotation(Enumerated.class);
+                System.out.println("enumerated = " + enumerated);
+                if (enumerated != null) {
+                    fieldType = FieldType.VARCHAR;
+                    break;
+                }
+
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "FATAL ERROR: ColumnComment annotation not supported type : " + type);
+        }
+        return fieldType;
+    }
+
+    private String getTableName(Entity entity, Table table, TypeElement typeElement) {
+        String tableName = typeElement.getSimpleName().toString();
+//                System.out.println("typeElement.getSimpleName() = " + tableName);
+        if (entity != null) {
+            if (!entity.name().trim().equals("")) {
+                tableName = entity.name();
+            }
+        }
+        if (table != null) {
+            if (!table.name().trim().equals("")) {
+                tableName = table.name();
+            }
+        }
+        return tableName;
+    }
+
 }
