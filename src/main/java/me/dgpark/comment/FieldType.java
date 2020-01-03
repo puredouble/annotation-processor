@@ -1,6 +1,8 @@
 package me.dgpark.comment;
 
 public enum FieldType {
+    UNKNOWN,
+
     FLOAT,
     DOUBLE,
     DECIMAL,

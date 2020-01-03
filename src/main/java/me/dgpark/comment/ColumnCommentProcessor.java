@@ -105,6 +105,17 @@ public class ColumnCommentProcessor extends AbstractProcessor {
                         }
                         else {
                             fieldType = getFieldType(type, key);
+
+                            if (fieldType.equals(FieldType.UNKNOWN)) {
+                                fieldType = checkEnumerated(key, fieldType);
+
+                                JoinColumn joinColumn = key.getAnnotation(JoinColumn.class);
+                                System.out.println("joinColumn = " + joinColumn);
+                                if (joinColumn != null) {
+                                    fieldType = FieldType.BIGINT;
+                                    fieldName = joinColumn.name();
+                                }
+                            }
                         }
 
                         System.out.println("fieldType = " + fieldType.name());
@@ -146,7 +157,7 @@ public class ColumnCommentProcessor extends AbstractProcessor {
                         alterField += "COMMENT '" + columnComment.value() + "'\"";
 
                         FieldSpec fieldSpec = FieldSpec
-                                .builder(String.class, columnComment.value(), Modifier.PUBLIC)
+                                .builder(String.class, fieldName, Modifier.PUBLIC)
 //                                    .initializer(
 //                                            "\"ALTER TABLE \u0060" + tableName + "\u0060 CHANGE \u0060" + fieldName + "\u0060 \u0060" + fieldName + "\u0060 INT( 11 ) COMMENT '" + columnComment.value() + "'\""
 //                                    )
@@ -154,7 +165,6 @@ public class ColumnCommentProcessor extends AbstractProcessor {
                                 .build();
 
                         fieldSpecList.add(fieldSpec);
-
                     }
 
                     TypeSpec typeSpec = TypeSpec.classBuilder(typeElement.getSimpleName() + "Comment")
@@ -177,6 +187,15 @@ public class ColumnCommentProcessor extends AbstractProcessor {
         }
 
         return true;
+    }
+
+    private FieldType checkEnumerated(Element key, FieldType fieldType) {
+        Enumerated enumerated = key.getAnnotation(Enumerated.class);
+        System.out.println("enumerated = " + enumerated);
+        if (enumerated != null) {
+            fieldType = FieldType.VARCHAR;
+        }
+        return fieldType;
     }
 
     private int getColumnLength(FieldType fieldType, int length) {
@@ -269,14 +288,24 @@ public class ColumnCommentProcessor extends AbstractProcessor {
                 fieldType = FieldType.TIME;
                 break;
             default:
-                Enumerated enumerated = field.getAnnotation(Enumerated.class);
-                System.out.println("enumerated = " + enumerated);
-                if (enumerated != null) {
-                    fieldType = FieldType.VARCHAR;
-                    break;
-                }
-
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "FATAL ERROR: ColumnComment annotation not supported type : " + type);
+                fieldType = FieldType.UNKNOWN;
+                break;
+//
+//                Enumerated enumerated = field.getAnnotation(Enumerated.class);
+//                System.out.println("enumerated = " + enumerated);
+//                if (enumerated != null) {
+//                    fieldType = FieldType.VARCHAR;
+//                    break;
+//                }
+//
+//                JoinColumn joinColumn = field.getAnnotation(JoinColumn.class);
+//                System.out.println("joinColumn = " + joinColumn);
+//                if (joinColumn != null) {
+//                    fieldType = FieldType.BIGINT;
+//                    break;
+//                }
+//
+//                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "FATAL ERROR: ColumnComment annotation not supported type : " + type);
         }
         return fieldType;
     }
